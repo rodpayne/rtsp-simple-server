@@ -65,6 +65,13 @@ type sourceRedirect struct{}
 
 func (*sourceRedirect) IsSource() {}
 
+// OnSourceAPIDescribe implements source.
+func (*sourceRedirect) OnSourceAPIDescribe() interface{} {
+	return struct {
+		Type string `json:"type"`
+	}{"redirect"}
+}
+
 type pathReaderState int
 
 const (
@@ -79,6 +86,20 @@ const (
 	pathSourceStateCreating
 	pathSourceStateReady
 )
+
+var pathSourceStateLabels = map[pathSourceState]string{
+	pathSourceStateNotReady: "notReady",
+	pathSourceStateCreating: "creating",
+	pathSourceStateReady:    "ready",
+}
+
+// MarshalText implements encoding.TextMarshaler.
+func (s pathSourceState) MarshalText() ([]byte, error) {
+	if v, ok := pathSourceStateLabels[s]; ok {
+		return []byte(v), nil
+	}
+	return []byte("unknown"), nil
+}
 
 type pathSourceStaticSetReadyReq struct {
 	Tracks gortsplib.Tracks
@@ -243,6 +264,7 @@ type path struct {
 	readerSetupPlay         chan pathReaderSetupPlayReq
 	readerPlay              chan pathReaderPlayReq
 	readerPause             chan pathReaderPauseReq
+	apiPathsList            chan apiPathsListReq2
 }
 
 func newPath(
@@ -291,6 +313,7 @@ func newPath(
 		readerSetupPlay:         make(chan pathReaderSetupPlayReq),
 		readerPlay:              make(chan pathReaderPlayReq),
 		readerPause:             make(chan pathReaderPauseReq),
+		apiPathsList:            make(chan apiPathsListReq2),
 	}
 
 	pa.wg.Add(1)
@@ -416,6 +439,21 @@ outer:
 
 		case req := <-pa.readerPause:
 			pa.onReaderPause(req)
+
+		case req := <-pa.apiPathsList:
+			req.Data.Items = append(req.Data.Items, apiPathsItem{
+				Name:        pa.name,
+				ConfName:    pa.confName,
+				Conf:        pa.conf,
+				SourceState: pa.sourceState,
+				Source: func() interface{} {
+					if pa.source == nil {
+						return nil
+					}
+					return pa.source.OnSourceAPIDescribe()
+				}(),
+			})
+			req.Res <- apiPathsListRes2{}
 
 		case <-pa.ctx.Done():
 			break outer
@@ -980,4 +1018,15 @@ func (pa *path) OnSourceFrame(trackID int, streamType gortsplib.StreamType, payl
 
 	// forward to non-RTSP readers
 	pa.nonRTSPReaders.forwardFrame(trackID, streamType, payload)
+}
+
+// OnAPIPathsList is called by api.
+func (pa *path) OnAPIPathsList(req apiPathsListReq2) apiPathsListRes2 {
+	req.Res = make(chan apiPathsListRes2)
+	select {
+	case pa.apiPathsList <- req:
+		return <-req.Res
+	case <-pa.ctx.Done():
+		return apiPathsListRes2{Err: fmt.Errorf("terminated")}
+	}
 }

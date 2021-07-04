@@ -86,6 +86,13 @@ func (s *rtspSession) Close() {
 // IsSource implements source.
 func (s *rtspSession) IsSource() {}
 
+// OnSourceAPIDescribe implements source.
+func (*rtspSession) OnSourceAPIDescribe() interface{} {
+	return struct {
+		Type string `json:"type"`
+	}{"rtspSession"}
+}
+
 // IsRTSPSession implements pathRTSPSession.
 func (s *rtspSession) IsRTSPSession() {}
 

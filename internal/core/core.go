@@ -33,6 +33,7 @@ type Core struct {
 	rtspServerTLS   *rtspServer
 	rtmpServer      *rtmpServer
 	hlsServer       *hlsServer
+	api             *api
 	confWatcher     *confwatcher.ConfWatcher
 
 	// out
@@ -321,6 +322,19 @@ func (p *Core) createResources(initial bool) error {
 		}
 	}
 
+	if p.conf.API {
+		if p.api == nil {
+			p.api, err = newAPI(
+				p.conf.APIAddress,
+				p.conf,
+				p.pathManager,
+				p)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -437,6 +451,23 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		closeStats ||
 		closePathManager {
 		closeServerHLS = true
+	}
+
+	closeAPI := false
+	if newConf == nil ||
+		newConf.API != p.conf.API ||
+		newConf.APIAddress != p.conf.APIAddress ||
+		closePathManager {
+		closeAPI = true
+	}
+
+	if p.api != nil {
+		if closeAPI {
+			p.api.close()
+			p.api = nil
+		} else {
+			p.api.OnConfReload(newConf)
+		}
 	}
 
 	if closeServerTLS && p.rtspServerTLS != nil {

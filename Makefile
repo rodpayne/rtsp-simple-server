@@ -125,8 +125,10 @@ define CONFIG_RUN
 #rtcpAddress: :8003
 #metrics: yes
 #pprof: yes
+api: yes
 
 paths:
+  mypath:
   all:
 #    runOnPublish: ffmpeg -i rtsp://localhost:$$RTSP_PORT/$$RTSP_PATH -c copy -f mpegts myfile_$$RTSP_PATH.ts
 #    readUser: test

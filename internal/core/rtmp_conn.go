@@ -123,6 +123,13 @@ func (c *rtmpConn) Close() {
 // IsSource implements source.
 func (c *rtmpConn) IsSource() {}
 
+// OnSourceAPIDescribe implements source.
+func (*rtmpConn) OnSourceAPIDescribe() interface{} {
+	return struct {
+		Type string `json:"type"`
+	}{"rtmpConn"}
+}
+
 func (c *rtmpConn) log(level logger.Level, format string, args ...interface{}) {
 	c.parent.Log(level, "[conn %v] "+format, append([]interface{}{c.conn.NetConn().RemoteAddr()}, args...)...)
 }
