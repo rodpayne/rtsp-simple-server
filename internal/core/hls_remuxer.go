@@ -34,8 +34,8 @@ const index = `<!DOCTYPE html>
 <meta charset="utf-8">
 <style>
 #video {
-	width: 600px;
-	height: 600px;
+	width: 100%;
+	height: 100%;
 	background: black;
 }
 </style>
